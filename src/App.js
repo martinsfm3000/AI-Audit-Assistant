@@ -2054,8 +2054,427 @@ ${findings.map(f => `- ${f.Finding} (${f['Risk Rating']} risk, ${f.Status})`).jo
           </div>
         )}
 
+        {showCreateAuditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,15,26,0.82)' }}>
+            <div className="w-full max-w-3xl rounded-2xl p-6 max-h-[90vh] overflow-auto" style={{ background: colors.bg.card, border: `1px solid ${colors.bg.border}` }}>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: colors.text.primary }}>Create New Audit</h3>
+                  <p className="text-sm mt-1" style={{ color: colors.text.secondary }}>Define the audit and add the controls you want to test.</p>
+                </div>
+                <button
+                  onClick={() => setShowCreateAuditModal(false)}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Audit Name</label>
+                  <input
+                    type="text"
+                    value={newAuditForm.name}
+                    onChange={(e) => setNewAuditForm({ ...newAuditForm, name: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg outline-none"
+                    style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    placeholder="e.g. Uganda Treasury Audit 2026"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Country</label>
+                  <input
+                    type="text"
+                    value={newAuditForm.country}
+                    onChange={(e) => setNewAuditForm({ ...newAuditForm, country: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg outline-none"
+                    style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    placeholder="e.g. Kenya"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Scope</label>
+                <textarea
+                  value={newAuditForm.scope}
+                  onChange={(e) => setNewAuditForm({ ...newAuditForm, scope: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg outline-none min-h-[90px]"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                  placeholder="Describe the audit scope"
+                />
+              </div>
+
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-semibold" style={{ color: colors.text.primary }}>Controls</h4>
+                  <p className="text-xs mt-1" style={{ color: colors.text.secondary }}>Add at least one control before saving.</p>
+                </div>
+                <button
+                  onClick={addControlRow}
+                  className="px-4 py-2 rounded-lg text-sm font-medium"
+                  style={{ background: colors.gradient.primary, color: colors.text.inverse }}
+                >
+                  Add Control
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {auditControls.map((control, idx) => (
+                  <div key={control.id} className="rounded-xl p-4" style={{ background: colors.bg.input, border: `1px solid ${colors.bg.border}` }}>
+                    <div className="grid md:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        value={control.name}
+                        onChange={(e) => {
+                          const updated = [...auditControls];
+                          updated[idx] = { ...updated[idx], name: e.target.value };
+                          setAuditControls(updated);
+                        }}
+                        className="px-3 py-2 rounded-lg outline-none"
+                        style={{ background: colors.bg.card, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                        placeholder="Control name"
+                      />
+                      <input
+                        type="text"
+                        value={control.objective}
+                        onChange={(e) => {
+                          const updated = [...auditControls];
+                          updated[idx] = { ...updated[idx], objective: e.target.value };
+                          setAuditControls(updated);
+                        }}
+                        className="px-3 py-2 rounded-lg outline-none"
+                        style={{ background: colors.bg.card, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                        placeholder="Control objective"
+                      />
+                      <div className="flex gap-3">
+                        <select
+                          value={control.area}
+                          onChange={(e) => {
+                            const updated = [...auditControls];
+                            updated[idx] = { ...updated[idx], area: e.target.value };
+                            setAuditControls(updated);
+                          }}
+                          className="flex-1 px-3 py-2 rounded-lg outline-none"
+                          style={{ background: colors.bg.card, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                        >
+                          <option>Finance</option>
+                          <option>Treasury</option>
+                          <option>IT</option>
+                          <option>Operations</option>
+                          <option>Procurement</option>
+                        </select>
+                        <button
+                          onClick={() => deleteControlRow(idx)}
+                          disabled={auditControls.length === 1}
+                          className="px-3 py-2 rounded-lg text-sm"
+                          style={{ background: colors.accent.danger, color: colors.text.inverse, opacity: auditControls.length === 1 ? 0.45 : 1 }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowCreateAuditModal(false)}
+                  className="px-4 py-2.5 rounded-lg"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createNewAudit}
+                  className="px-5 py-2.5 rounded-lg font-medium"
+                  style={{ background: colors.gradient.primary, color: colors.text.inverse }}
+                >
+                  Create Audit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,15,26,0.82)' }}>
+            <div className="w-full max-w-md rounded-2xl p-6" style={{ background: colors.bg.card, border: `1px solid ${colors.bg.border}` }}>
+              <h3 className="text-xl font-bold mb-2" style={{ color: colors.text.primary }}>Delete Audit</h3>
+              <p className="mb-6" style={{ color: colors.text.secondary }}>This will permanently remove the selected audit from the dashboard.</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="px-4 py-2.5 rounded-lg"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteAudit(showDeleteConfirm)}
+                  className="px-4 py-2.5 rounded-lg font-medium"
+                  style={{ background: colors.accent.danger, color: colors.text.inverse }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showNewUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,15,26,0.82)' }}>
+            <div className="w-full max-w-lg rounded-2xl p-6" style={{ background: colors.bg.card, border: `1px solid ${colors.bg.border}` }}>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: colors.text.primary }}>Add Team Member</h3>
+                  <p className="text-sm mt-1" style={{ color: colors.text.secondary }}>Create a new user and assign their role.</p>
+                </div>
+                <button
+                  onClick={() => setShowNewUserModal(false)}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <input
+                  type="text"
+                  value={newUserForm.name}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg outline-none"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                  placeholder="Full name"
+                />
+                <input
+                  type="email"
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg outline-none"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                  placeholder="Email address"
+                />
+                <select
+                  value={newUserForm.role}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg outline-none"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  <option>Junior Auditor</option>
+                  <option>Senior Auditor</option>
+                  <option>Audit Manager</option>
+                  <option>Audit Director</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowNewUserModal(false)}
+                  className="px-4 py-2.5 rounded-lg"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addNewUser}
+                  className="px-4 py-2.5 rounded-lg font-medium"
+                  style={{ background: colors.gradient.primary, color: colors.text.inverse }}
+                >
+                  Add User
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {testingControl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,15,26,0.82)' }}>
+            <div className="w-full max-w-4xl rounded-2xl p-6 max-h-[92vh] overflow-auto" style={{ background: colors.bg.card, border: `1px solid ${colors.bg.border}` }}>
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: colors.text.primary }}>Test Control</h3>
+                  <p className="text-sm mt-1" style={{ color: colors.text.secondary }}>{testingControl.control?.name}</p>
+                </div>
+                <button
+                  onClick={() => setTestingControl(null)}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="flex gap-3 mb-6">
+                <button
+                  onClick={() => setTestingType('quantitative')}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                  style={{ background: testingType === 'quantitative' ? colors.gradient.primary : colors.bg.input, color: testingType === 'quantitative' ? colors.text.inverse : colors.text.primary, border: testingType === 'quantitative' ? 'none' : `1px solid ${colors.bg.border}` }}
+                >
+                  Quantitative
+                </button>
+                <button
+                  onClick={() => setTestingType('qualitative')}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                  style={{ background: testingType === 'qualitative' ? colors.gradient.primary : colors.bg.input, color: testingType === 'qualitative' ? colors.text.inverse : colors.text.primary, border: testingType === 'qualitative' ? 'none' : `1px solid ${colors.bg.border}` }}
+                >
+                  Qualitative
+                </button>
+              </div>
+
+              {Array.isArray(testResults.generatedProcedures) && testResults.generatedProcedures.length > 0 && (
+                <div className="mb-6 rounded-xl p-4" style={{ background: colors.bg.input, border: `1px solid ${colors.bg.border}` }}>
+                  <p className="text-sm font-semibold mb-3" style={{ color: colors.accent.primary }}>AI Suggested Procedures</p>
+                  <div className="space-y-2">
+                    {testResults.generatedProcedures.map((procedure, idx) => (
+                      <p key={idx} className="text-sm" style={{ color: colors.text.secondary }}>{idx + 1}. {procedure}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {testingType === 'quantitative' ? (
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Population</label>
+                    <input
+                      type="number"
+                      value={testResults.population}
+                      onChange={(e) => setTestResults({ ...testResults, population: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Sample Size</label>
+                    <input
+                      type="number"
+                      value={testResults.sampleSize}
+                      onChange={(e) => setTestResults({ ...testResults, sampleSize: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Result</label>
+                    <select
+                      value={testResults.testResult}
+                      onChange={(e) => setTestResults({ ...testResults, testResult: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    >
+                      <option>Pass</option>
+                      <option>Fail</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Exceptions Found</label>
+                    <input
+                      type="number"
+                      value={testResults.exceptionsFound}
+                      onChange={(e) => setTestResults({ ...testResults, exceptionsFound: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Notes</label>
+                    <textarea
+                      value={testResults.notes}
+                      onChange={(e) => setTestResults({ ...testResults, notes: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none min-h-[120px]"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                      placeholder="Document evidence, exceptions, and conclusion."
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Testing Approach</label>
+                    <select
+                      value={testResults.testingApproach}
+                      onChange={(e) => setTestResults({ ...testResults, testingApproach: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    >
+                      <option>Walkthrough</option>
+                      <option>Inquiry</option>
+                      <option>Observation</option>
+                      <option>Inspection</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Risk Assessment</label>
+                    <select
+                      value={testResults.riskAssessment}
+                      onChange={(e) => setTestResults({ ...testResults, riskAssessment: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    >
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                      <option>Critical</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Findings</label>
+                    <textarea
+                      value={testResults.findings}
+                      onChange={(e) => setTestResults({ ...testResults, findings: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none min-h-[120px]"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Conclusion</label>
+                    <textarea
+                      value={testResults.conclusion}
+                      onChange={(e) => setTestResults({ ...testResults, conclusion: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none min-h-[110px]"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: colors.text.muted }}>Evidence</label>
+                    <textarea
+                      value={testResults.evidence}
+                      onChange={(e) => setTestResults({ ...testResults, evidence: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg outline-none min-h-[110px]"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setTestingControl(null)}
+                  className="px-4 py-2.5 rounded-lg"
+                  style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTestResults}
+                  className="px-5 py-2.5 rounded-lg font-medium"
+                  style={{ background: colors.gradient.primary, color: colors.text.inverse }}
+                >
+                  Save Test Result
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
+  </div>
   );
 }
 
