@@ -57,6 +57,28 @@ RESPONSE GUIDELINES:
 
 Always be helpful, precise, and focused on audit value.`;
 
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_API_VERSION = '2023-06-01';
+const CLAUDE_CHAT_MODEL = 'claude-sonnet-4-20250514';
+const CLAUDE_AUTOTEST_MODEL = 'claude-opus-4-1-20250805';
+const CLAUDE_KEY_STORAGE_KEY = 'mkopa_claude_api_key';
+
+const getDefaultClaudeApiKey = () => {
+  if (typeof window === 'undefined') {
+    return (process.env.REACT_APP_ANTHROPIC_API_KEY || '').trim();
+  }
+  const savedKey = window.localStorage.getItem(CLAUDE_KEY_STORAGE_KEY) || '';
+  return (savedKey || process.env.REACT_APP_ANTHROPIC_API_KEY || '').trim();
+};
+
+const getAnthropicHeaders = (apiKey) => ({
+  'Content-Type': 'application/json',
+  'x-api-key': apiKey,
+  'anthropic-version': ANTHROPIC_API_VERSION,
+  // Anthropic blocks direct browser calls unless this header is explicitly set.
+  'anthropic-dangerous-direct-browser-access': 'true'
+});
+
 // Color system
 const colors = {
   bg: { dark: '#0a0f1a', card: '#141b2d', cardHover: '#1a2540', input: '#1e293b', border: '#2d3748' },
@@ -858,6 +880,11 @@ What would you like to work on today?`,
 
   // Call Claude API
   const callClaudeAPI = async (userMessage) => {
+    const claudeApiKey = getClaudeApiKey();
+    if (!claudeApiKey) {
+      return 'Claude is not connected yet. Add your Anthropic API key in the assistant panel.';
+    }
+
     const context = `
 CURRENT AUDIT DATA:
 - Controls: ${controls.length} total (${controls.filter(c => c.Status === 'Done').length} tested, ${controls.filter(c => c['Test Result'] === 'Fail').length} with exceptions)
@@ -872,16 +899,21 @@ ${findings.map(f => `- ${f.Finding} (${f['Risk Rating']} risk, ${f.Status})`).jo
     `.trim();
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAnthropicHeaders(claudeApiKey),
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: CLAUDE_CHAT_MODEL,
           max_tokens: 1000,
           system: AUDIT_SYSTEM_PROMPT + '\n\n' + context,
           messages: [{ role: 'user', content: userMessage }]
         })
       });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Claude API request failed (${response.status}): ${errorBody}`);
+      }
 
       const data = await response.json();
       if (data.content?.[0]?.text) {
@@ -939,17 +971,57 @@ ${findings.map(f => `- ${f.Finding} (${f['Risk Rating']} risk, ${f.Status})`).jo
   const [uploadedData, setUploadedData] = useState(null);
   const [generatedTests, setGeneratedTests] = useState([]);
   const [workpapers, setWorkpapers] = useState([]);
-  const [automationSettings, setAutomationSettings] = useState({
-    claudeApiKey: '',
-    autoRiskRating: true,
-    autoSampling: true,
-    apiEnabled: false
+  const [automationSettings, setAutomationSettings] = useState(() => {
+    const defaultApiKey = getDefaultClaudeApiKey();
+    return {
+      claudeApiKey: defaultApiKey,
+      autoRiskRating: true,
+      autoSampling: true,
+      apiEnabled: Boolean(defaultApiKey)
+    };
   });
+
+  const getClaudeApiKey = () => (automationSettings.claudeApiKey || '').trim();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = (automationSettings.claudeApiKey || '').trim();
+    if (key) {
+      window.localStorage.setItem(CLAUDE_KEY_STORAGE_KEY, key);
+    } else {
+      window.localStorage.removeItem(CLAUDE_KEY_STORAGE_KEY);
+    }
+  }, [automationSettings.claudeApiKey]);
+
+  const handleToggleClaudeApi = () => {
+    if (automationSettings.apiEnabled) {
+      setAutomationSettings(prev => ({ ...prev, apiEnabled: false }));
+      return;
+    }
+
+    const existingKey = (automationSettings.claudeApiKey || '').trim();
+    if (existingKey) {
+      setAutomationSettings(prev => ({ ...prev, apiEnabled: true }));
+      return;
+    }
+
+    const enteredKey = window.prompt('Enter your Anthropic API key (starts with sk-ant-):', '');
+    const trimmedKey = (enteredKey || '').trim();
+
+    if (!trimmedKey) return;
+
+    setAutomationSettings(prev => ({
+      ...prev,
+      claudeApiKey: trimmedKey,
+      apiEnabled: true
+    }));
+  };
 
   // Call Claude API for automated testing
   const callClaudeForAutoTest = async (control, testType = 'quantitative') => {
-    if (!automationSettings.apiEnabled || !automationSettings.claudeApiKey) {
-      alert('API not configured. Please add your Claude API key in settings.');
+    const claudeApiKey = getClaudeApiKey();
+    if (!claudeApiKey) {
+      alert('API not configured. Add your Claude API key in the Assistant tab.');
       return null;
     }
 
@@ -958,14 +1030,11 @@ ${findings.map(f => `- ${f.Finding} (${f['Risk Rating']} risk, ${f.Status})`).jo
         ? `Generate audit test procedures for this control: "${control.name}". Objective: ${control.objective}. Area: ${control.area}. Suggest sample size for population of 5000 items. Return JSON: {procedures: [], sampleSize: number, riskLevel: string}`
         : `Generate qualitative audit procedures for: "${control.name}". Objective: ${control.objective}. Suggest testing approach and key areas to assess. Return JSON: {approach: string, procedures: [], keyAreas: []}`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': automationSettings.claudeApiKey
-        },
+        headers: getAnthropicHeaders(claudeApiKey),
         body: JSON.stringify({
-          model: 'claude-opus-4-1-20250805',
+          model: CLAUDE_AUTOTEST_MODEL,
           max_tokens: 1000,
           messages: [{
             role: 'user',
@@ -974,7 +1043,10 @@ ${findings.map(f => `- ${f.Finding} (${f['Risk Rating']} risk, ${f.Status})`).jo
         })
       });
 
-      if (!response.ok) throw new Error('API request failed');
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`API request failed (${response.status}): ${errorBody}`);
+      }
       const data = await response.json();
       const content = data.content[0].text;
       
@@ -1461,6 +1533,47 @@ ${findings.map(f => `- ${f.Finding} (${f['Risk Rating']} risk, ${f.Status})`).jo
         {activeTab === 'assistant' && (
           <div className="h-full flex flex-col">
             <div className="flex-1 overflow-auto p-6">
+              <div className="mb-4 rounded-xl p-4" style={{ background: colors.bg.card, border: `1px solid ${colors.bg.border}` }}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-sm font-semibold" style={{ color: colors.text.primary }}>Claude Connection</p>
+                  <StatusBadge status={getClaudeApiKey() ? 'Done' : 'Not started'} size="sm" />
+                </div>
+                <div className="grid md:grid-cols-[1fr_auto] gap-3">
+                  <div>
+                    <label className="text-xs font-semibold mb-1.5 block" style={{ color: colors.text.muted }}>Anthropic API Key</label>
+                    <input
+                      type="password"
+                      value={automationSettings.claudeApiKey}
+                      onChange={(e) => {
+                        const nextKey = e.target.value;
+                        setAutomationSettings(prev => ({
+                          ...prev,
+                          claudeApiKey: nextKey,
+                          apiEnabled: Boolean((nextKey || '').trim())
+                        }));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-lg outline-none text-sm"
+                      style={{ background: colors.bg.input, color: colors.text.primary, border: `1px solid ${colors.bg.border}` }}
+                      placeholder="Paste Anthropic API key (starts with sk-ant-...)"
+                    />
+                  </div>
+                  <button
+                    onClick={handleToggleClaudeApi}
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                    style={{
+                      background: automationSettings.apiEnabled ? colors.accent.success : colors.bg.input,
+                      color: automationSettings.apiEnabled ? colors.text.inverse : colors.text.primary,
+                      border: automationSettings.apiEnabled ? 'none' : `1px solid ${colors.bg.border}`
+                    }}
+                  >
+                    {automationSettings.apiEnabled ? 'Enabled' : 'Enable Claude API'}
+                  </button>
+                </div>
+                <p className="text-xs mt-2" style={{ color: colors.text.muted }}>
+                  Tip: you can also set `REACT_APP_ANTHROPIC_API_KEY` in `.env` to preload this automatically.
+                </p>
+              </div>
+
               {chatMessages.map((msg, idx) => (
                 <ChatMessage key={idx} {...msg} />
               ))}
