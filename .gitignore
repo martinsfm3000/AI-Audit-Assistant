@@ -4,3 +4,4 @@ devserver.err.log
 App.frommap.tmp.js
 .env
 .env.local
+build
